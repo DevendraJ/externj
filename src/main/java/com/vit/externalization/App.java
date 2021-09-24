@@ -3,46 +3,38 @@ package com.vit.externalization;
 import org.apache.commons.io.FileUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Node;
+import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Scanner;
+
+import static com.vit.externalization.Utilities.TAGS_WITH_TEXT;
 
 public class App {
     public static void main(String[] args) {
-        Scanner in = new Scanner(System.in);
         System.out.println("Started processing the file.");
-        File inFile = FileUtils.getFile("/home/deva/Downloads/ROAdd.jsp");
-        File outFile = FileUtils.getFile("/home/deva/Downloads/ROAdd-mod.jsp");
+        String userHome = System.getProperty("user.home");
+        File inFile = FileUtils.getFile(userHome + "/Downloads/trash/garb/ROAdd.jsp");
+        File plainStrings = FileUtils.getFile(userHome + "/Downloads/trash/garb/plainStrings.csv");
+
         try {
-            File tmpFile = Utilities.commentScriptletTags(inFile);
+            Document doc = Jsoup.parse(inFile, StandardCharsets.UTF_8.name());
+            Elements elements = doc.select(String.join(",", TAGS_WITH_TEXT));
+            for (Element ele : elements) {
+                String originalText = (ele.tagName().equals("input") && ele.attr("type").equals("submit")) ?
+                        ele.attr("value") :
+                        ele.text();
 
-            // <spring:message code="farmer.login_text" text="Sign into the Depot Online System with Farmer Registration Number" />
+                if (!originalText.equals("")) {
+                    Utilities.writeToCSV(plainStrings.getPath(), new String[]{inFile.getPath(), ele.tagName(), originalText});
+                }
+            }
 
-            Document doc = Jsoup.parse(tmpFile, StandardCharsets.UTF_8.name());
-            Elements elements = doc.select("label");
-            elements.forEach(ele -> {
-                String originalText = ele.text();
-                System.out.println("Replace \"" + originalText + "\" with: ");
-//                String userInput = in.next();
-                String innerHtml = String.format("<spring:message  text=\"%s\" />",
-//                        userInput,
-                        originalText);
-                ele.textNodes().forEach(Node::remove);
-                ele.html(innerHtml);
-                ele.html();
-            });
-            FileUtils.writeStringToFile(tmpFile, doc.outerHtml(), StandardCharsets.UTF_8.name());
-
-            tmpFile = Utilities.uncommentScriptletTags(tmpFile);
-            FileUtils.copyFile(tmpFile, outFile);
-
-            System.out.println("Completed..!");
+            System.out.println("\nCompleted..!");
         } catch (IOException e) {
-            System.out.println("Something went wrong..!");
+            System.out.println("\nSomething went wrong..!");
             e.printStackTrace();
         }
     }
